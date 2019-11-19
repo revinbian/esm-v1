@@ -42,8 +42,8 @@ func (s *ESAPIV5) Bulk(data *bytes.Buffer){
 func (s *ESAPIV5) GetIndexSettings(indexNames string) (*Indexes,error){
         return s.ESAPIV0.GetIndexSettings(indexNames)
 }
-func (s *ESAPIV5) GetIndexMappings(copyAllIndexes bool,indexNames string)(string,int,*Indexes,error){
-        return s.ESAPIV0.GetIndexMappings(copyAllIndexes,indexNames)
+func (s *ESAPIV5) GetIndexMappings(copyAllIndexes bool,indexNames string,typeNames string)(string,int,*Indexes,error){
+        return s.ESAPIV0.GetIndexMappings(copyAllIndexes,indexNames,typeNames)
 }
 
 func (s *ESAPIV5) UpdateIndexSettings(indexName string,settings map[string]interface{})(error){
@@ -66,8 +66,8 @@ func (s *ESAPIV5) Refresh(name string) (err error) {
         return s.ESAPIV0.Refresh(name)
 }
 
-func (s *ESAPIV5) NewScroll(indexNames string,scrollTime string,docBufferCount int,query string, slicedId,maxSlicedCount int, fields string)(scroll interface{}, err error){
-        url := fmt.Sprintf("%s/%s/_search?scroll=%s&size=%d", s.Host, indexNames, scrollTime,docBufferCount)
+func (s *ESAPIV5) NewScroll(indexNames string,typeNames string,scrollTime string,docBufferCount int,query string, slicedId,maxSlicedCount int, fields string)(scroll interface{}, err error){
+        url := fmt.Sprintf("%s/%s/%s/_search?scroll=%s&size=%d", s.Host, indexNames, typeNames, scrollTime,docBufferCount)
 
         jsonBody:=""
         if(len(query)>0||maxSlicedCount>0||len(fields)>0) {

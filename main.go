@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"bufio"
-	log "github.com/cihub/seelog"   // 日志包
-	goflags "github.com/jessevdk/go-flags"  // 命令行选项解析器
-	"gopkg.in/cheggaaa/pb.v1"   // 简单的控制台进度条
+	log "github.com/cihub/seelog"
+	goflags "github.com/jessevdk/go-flags"
+	"gopkg.in/cheggaaa/pb.v1"
 	"os"
 	"io"
 	"io/ioutil"
@@ -19,16 +19,16 @@ import (
 
 func main() {
 
-	runtime.GOMAXPROCS(runtime.NumCPU())  // 利用cpu多核
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	c := &Config{}  // c := new(Config) , 在Go语言中，对结构体进行&取地址操作时，视为对该类型进行一次 new 的实例化操作
-	migrator:=Migrator{}  // 实例一个空值的初始化
+	c := &Config{}
+	migrator:=Migrator{}
 	migrator.Config=c
 
 
-	// parse args 解析参数
+	// parse args
 	_, err := goflags.Parse(c)
-	if err != nil { 
+	if err != nil {
 		log.Error(err)
 		// if error, print it
 		fmt.Print(err)
@@ -37,103 +37,88 @@ func main() {
 
 	setInitLogging(c.LogLevel)
 
-	if len(c.SourceEs) == 0 && len(c.DumpInputFile) == 0 { // 如果"源elasticsearch地址"或者"导入文件名"都为空
+	if len(c.SourceEs) == 0 && len(c.DumpInputFile) == 0 {
 		log.Error("no input, type --help for more details")
 		return
 	}
-	if len(c.TargetEs) == 0 && len(c.DumpOutFile) == 0 { // 如果"目标elasticsearch地址" 和 "打出文件名"都为空
+	if len(c.TargetEs) == 0 && len(c.DumpOutFile) == 0 {
 		log.Error("no output, type --help for more details")
 		return
 	}
 
-	if c.SourceEs == c.TargetEs && c.SourceIndexNames == c.TargetIndexName { // 如果"源elasticsearch地址"和"目标elasticsearch地址"一样 并且 "源索引名"和"目标索引名"一样
+	if c.SourceEs == c.TargetEs && c.SourceIndexNames == c.TargetIndexName {
 		log.Error("migration output is the same as the output")
 		return
 	}
 
 	// enough of a buffer to hold all the search results across all workers
-	// 创建一个有缓冲的通道（buffered channel,大小为scroll request size (default 1000)  * bulk workers (default1) * 10
-	// 足够的缓冲区容纳所有worker的所有搜索文档结果
 	migrator.DocChan = make(chan map[string]interface{}, c.DocBufferCount*c.Workers*10)
 
-	var srcESVersion *ClusterVersion // 存储源es版本,类型为ClusterVersion指针类型
+	var srcESVersion *ClusterVersion
 	// create a progressbar and start a docCount
-	var outputBar *pb.ProgressBar  // 进度条的指针类型
-	var fetchBar = pb.New(1).Prefix("Scroll")  // 创建一个进度条
+	var outputBar *pb.ProgressBar
+	var fetchBar = pb.New(1).Prefix("Scroll")
 
-	// 可以使用等待组进行多个任务的同步，等待组可以保证在并发环境中完成指定数量的任务
-	// 在 sync.WaitGroup（等待组）类型中，每个 sync.WaitGroup 值在内部维护着一个计数，此计数的初始默认值为零。
-	// Go语言等待组（sync.WaitGroup）
-	wg := sync.WaitGroup{}  
+	wg := sync.WaitGroup{}
 
-	// =========================开始 处理input es源方式或者文件方式===========
-	//dealing with input 处理请求
-	if len(c.SourceEs) > 0 {　// 是从es为源处理
-		//dealing with basic auth 处理验证字符串
+	//dealing with input
+	if len(c.SourceEs) > 0 {
+		//dealing with basic auth
 		if len(c.SourceEsAuthStr) > 0 && strings.Contains(c.SourceEsAuthStr, ":") {
 			authArray := strings.Split(c.SourceEsAuthStr, ":")
-			auth := Auth{User: authArray[0], Pass: authArray[1]} // 实例Auth结构体
+			auth := Auth{User: authArray[0], Pass: authArray[1]}
 			migrator.SourceAuth = &auth
 		}
 
-		/*
-		* 调用方法 get source es version 获取源es版本
-		* 参数 SourceEs 源es地址
-		* 参数 SourceAuth 源es的验证结构体
-		* 参数 SourceEs 源es的代理地址
-		* 返回 指针类型的ClusterVersion结构体
-		*/
+		//get source es version
 		srcESVersion, errs := migrator.ClusterVersion(c.SourceEs, migrator.SourceAuth,migrator.Config.SourceProxy)
 		if errs != nil {
 			return
 		}
-		if strings.HasPrefix(srcESVersion.Version.Number, "7.") {  // 判断是否是7.x版本
+		if strings.HasPrefix(srcESVersion.Version.Number, "7.") {
 			log.Debug("source es is V7,", srcESVersion.Version.Number)
-			api := new(ESAPIV7) // 实例ESAPIV7类 => v7.go 
+			api := new(ESAPIV7)
 			api.Host = c.SourceEs
 			api.Auth = migrator.SourceAuth
 			api.HttpProxy=migrator.Config.SourceProxy
 			migrator.SourceESAPI = api
-		}else if strings.HasPrefix(srcESVersion.Version.Number, "6.") { // 判断是否是6.x版本
+		}else if strings.HasPrefix(srcESVersion.Version.Number, "6.") {
 			log.Debug("source es is V6,", srcESVersion.Version.Number)
-			api := new(ESAPIV5) // 实例ESAPIV5类 => v5.go 
+			api := new(ESAPIV5)
 			api.Host = c.SourceEs
 			api.Auth = migrator.SourceAuth
 			api.HttpProxy=migrator.Config.SourceProxy
 			migrator.SourceESAPI = api
-		} else if strings.HasPrefix(srcESVersion.Version.Number, "5.") { // 判断是否是5.x版本
+		} else if strings.HasPrefix(srcESVersion.Version.Number, "5.") {
 			log.Debug("source es is V5,", srcESVersion.Version.Number)
-			api := new(ESAPIV5) // 实例ESAPIV5类 => v5.go 
+			api := new(ESAPIV5)
 			api.Host = c.SourceEs
 			api.Auth = migrator.SourceAuth
 			api.HttpProxy=migrator.Config.SourceProxy
 			migrator.SourceESAPI = api
 		} else {
 			log.Debug("source es is not V5,", srcESVersion.Version.Number)
-			api := new(ESAPIV0)  // 实例ESAPIV0类 => v0.go 
+			api := new(ESAPIV0)
 			api.Host = c.SourceEs
 			api.Auth = migrator.SourceAuth
 			api.HttpProxy=migrator.Config.SourceProxy
 			migrator.SourceESAPI = api
 		}
 
-		if(c.ScrollSliceSize<1){c.ScrollSliceSize=1}  // size of sliced scroll,不能为负
+		if(c.ScrollSliceSize<1){c.ScrollSliceSize=1}
 
 		fetchBar.ShowBar=false
 
 		totalSize:=0;
 		finishedSlice:=0
 		for slice:=0;slice<c.ScrollSliceSize ;slice++  {
-			/*
-			* 获取scroll 返回结果
-			*/
-			scroll, err := migrator.SourceESAPI.NewScroll(c.SourceIndexNames, c.ScrollTime, c.DocBufferCount, c.Query,slice,c.ScrollSliceSize, c.Fields)
+			scroll, err := migrator.SourceESAPI.NewScroll(c.SourceIndexNames, c.SourceTypeNames, c.ScrollTime, c.DocBufferCount, c.Query,slice,c.ScrollSliceSize, c.Fields)
 			if err != nil {
 				log.Error(err)
 				return
 			}
 
-			temp:=scroll.(ScrollAPI)   //   ?  断言，scroll是否是ScrollAPI接口类型的
+			temp:=scroll.(ScrollAPI)
 
 			totalSize+=temp.GetHitsTotal()
 
@@ -145,7 +130,7 @@ func main() {
 				}
 
 
-				go func() {  // go协程
+				go func() {
 					wg.Add(1)
 					//process input
 					// start scroll
@@ -176,19 +161,19 @@ func main() {
 
 
 
-	} else if len(c.DumpInputFile) > 0 {  // 如果输入源是文件
+	} else if len(c.DumpInputFile) > 0 {
 		//read file stream
 		wg.Add(1)
-		f, err := os.Open(c.DumpInputFile)　// 读取文件
+		f, err := os.Open(c.DumpInputFile)
 		if err != nil {
 			log.Error(err)
 			return
 		}
 		//get file lines
 		lineCount := 0
-		defer f.Close()　// 延迟函数，函数结果，关闭文件，防止报错不关闭
-		r := bufio.NewReader(f)　// 建立一个读的bufio
-		for{//循环都文件
+		defer f.Close()
+		r := bufio.NewReader(f)
+		for{
 			_,err := r.ReadString('\n')
 			if io.EOF == err || nil != err{
 				break
@@ -200,9 +185,8 @@ func main() {
 		outputBar = pb.New(lineCount).Prefix("Output ")
 		f.Close()
 
-		go migrator.NewFileReadWorker(fetchBar,&wg)　// 真正读文件处理的并发方法
+		go migrator.NewFileReadWorker(fetchBar,&wg)
 	}
-	// =========================结束 处理input es源方式或者文件方式===========
 
 	// start pool
 	pool, err := pb.StartPool(fetchBar, outputBar)
@@ -210,7 +194,6 @@ func main() {
 		panic(err)
 	}
 
-	// =========================开始 处理输出===========
 	//dealing with output
 	if len(c.TargetEs) > 0 {
 		if len(c.TargetEsAuthStr) > 0 && strings.Contains(c.TargetEsAuthStr, ":") {
@@ -287,7 +270,7 @@ func main() {
 
 		if len(c.SourceEs) > 0 {
 			// get all indexes from source
-			indexNames, indexCount, sourceIndexMappings, err := migrator.SourceESAPI.GetIndexMappings(c.CopyAllIndexes, c.SourceIndexNames)
+			indexNames, indexCount, sourceIndexMappings, err := migrator.SourceESAPI.GetIndexMappings(c.CopyAllIndexes, c.SourceIndexNames, c.SourceTypeNames)
 			if err != nil {
 				log.Error(err)
 				return
@@ -434,9 +417,7 @@ func main() {
 		}
 
 	}
-	// =========================结束 处理输出===========
 
-	//　===========开始es bulk thread========================
 	log.Info("start data migration..")
 
 	//start es bulk thread
@@ -461,12 +442,8 @@ func main() {
 	pool.Stop()
 
 	log.Info("data migration finished.")
-	//　===========结束　es bulk thread========================
 }
 
-/**
-* 恢复索引设置
-*/
 func (c *Migrator) recoveryIndexSettings(sourceIndexRefreshSettings map[string]interface{}) {
 	//update replica and refresh_interval
 	for name, interval := range sourceIndexRefreshSettings {
@@ -480,13 +457,6 @@ func (c *Migrator) recoveryIndexSettings(sourceIndexRefreshSettings map[string]i
 	}
 }
 
-/**
-* 获取elasticsearch的集群版本
-* 参数: SourceEs 源es地址
-* 参数: SourceAuth 源es的验证结构体
-* 参数: SourceEs 源es的代理地址
-* 返回: 指针类型的ClusterVersion结构体
-*/
 func (c *Migrator) ClusterVersion(host string, auth *Auth,proxy string) (*ClusterVersion, []error) {
 
 	url := fmt.Sprintf("%s", host)
@@ -514,11 +484,6 @@ func (c *Migrator) ClusterVersion(host string, auth *Auth,proxy string) (*Cluste
 	return version, nil
 }
 
-/*
-* 获取集群的健康状态
-* 参数: api 指定版本的api的实例
-* 返回: 集群的健康状态,bool
-*/
 func (c *Migrator) ClusterReady(api ESAPI) (*ClusterHealth, bool) {
 	health := api.ClusterHealth()
 

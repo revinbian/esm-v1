@@ -17,12 +17,10 @@ limitations under the License.
 package main
 
 import (
-	"strings"　//　字符串处理包
-	log "github.com/cihub/seelog" // 日志包
+	"strings"
+	log "github.com/cihub/seelog"
 )
-/**
-* 设置初始化日志级别
-*/
+
 func setInitLogging(logLevel string) {
 
 	logLevel = strings.ToLower(logLevel)

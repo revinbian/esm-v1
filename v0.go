@@ -34,18 +34,13 @@ type ESAPIV0 struct {
         HttpProxy string //eg: http://proxyIp:proxyPort
 }
 
-/*
-* 获取集群健康状态
-*/
 func (s *ESAPIV0) ClusterHealth() *ClusterHealth {
 
         url := fmt.Sprintf("%s/_cluster/health", s.Host)
         r, body, errs := Get(url, s.Auth,s.HttpProxy)
 
-        if r!=nil && r.Body!=nil {
-                // ioutil.Discard 类似 /dev/null 设备，是个无底洞，啥都可以往里扔
-                // 可以理解为把r.body置为空。因为上面已经拿到了body
-                io.Copy(ioutil.Discard, r.Body)  
+        if r!=nil&& r.Body!=nil{
+                io.Copy(ioutil.Discard, r.Body)
                 defer r.Body.Close()
         }
 
@@ -56,8 +51,8 @@ func (s *ESAPIV0) ClusterHealth() *ClusterHealth {
         log.Debug(url)
         log.Debug(body)
 
-        health := &ClusterHealth{} // 实例一个空的结构体对象
-        err := json.Unmarshal([]byte(body), health) // 解析json.Unmarshal固定用法,参数1.Unmarshal的第一个参数是json字符串，第二个参数是接受json解析的数据结构(必须是指针类型)。
+        health := &ClusterHealth{}
+        err := json.Unmarshal([]byte(body), health)
 
         if err != nil {
                 log.Error(body)
@@ -66,16 +61,12 @@ func (s *ESAPIV0) ClusterHealth() *ClusterHealth {
         return health
 }
 
-/**
-* es的Bulk操作
-参数: data
-*/
 func (s *ESAPIV0) Bulk(data *bytes.Buffer) {
         if data == nil || data.Len() == 0 {
                 log.Error("data is empty, skip")
                 return
         }
-        data.WriteRune('\n') // 末尾写入
+        data.WriteRune('\n')
         url := fmt.Sprintf("%s/_bulk", s.Host)
 
         log.Trace(url)
@@ -90,8 +81,8 @@ func (s *ESAPIV0) Bulk(data *bytes.Buffer) {
         }
         //log.Trace(url,string(body))
         //fmt.Println(string(body))
-        response:=BulkResponse{} // 实例bulk的返回结构体
-        json.Unmarshal([]byte(body), &response) //  json解析返回的bulk
+        response:=BulkResponse{}
+        json.Unmarshal([]byte(body), &response)
         //v,_:=json.MarshalIndent(&response,""," ")
         //fmt.Println(string(v))
         if err == nil {
@@ -101,24 +92,20 @@ func (s *ESAPIV0) Bulk(data *bytes.Buffer) {
                 }
         }
 
-        data.Reset()  // 清空数据
+        data.Reset()
 }
 
-/**
-* 获取索引设置
-* 参数: indexNames 索引名字 (支持多个,逗号隔开)
-*/
 func (s *ESAPIV0) GetIndexSettings(indexNames string) (*Indexes, error) {
 
         // get all settings
-        allSettings := &Indexes{} //创建Indexes结构体指针类型
+        allSettings := &Indexes{}
 
         url := fmt.Sprintf("%s/%s/_settings", s.Host, indexNames)
         resp, body, errs := Get(url, s.Auth,s.HttpProxy)
 
-        if resp!=nil && resp.Body!=nil {
-                io.Copy(ioutil.Discard, resp.Body) // 置为空
-                defer resp.Body.Close() //defer延迟执行,函数执行完,关闭
+        if resp!=nil&& resp.Body!=nil{
+                io.Copy(ioutil.Discard, resp.Body)
+                defer resp.Body.Close()
         }
 
         if errs != nil {
@@ -140,13 +127,8 @@ func (s *ESAPIV0) GetIndexSettings(indexNames string) (*Indexes, error) {
         return allSettings, nil
 }
 
-/**
-* 获取索引的mapping配置信息
-* 参考: copyAllIndexes 
-* 参数: indexNames 索引名字 (支持多个,逗号隔开)
-*/
-func (s *ESAPIV0) GetIndexMappings(copyAllIndexes bool, indexNames string) (string, int, *Indexes, error) {
-        url := fmt.Sprintf("%s/%s/_mapping", s.Host, indexNames)
+func (s *ESAPIV0) GetIndexMappings(copyAllIndexes bool, indexNames string, typeNames string) (string, int, *Indexes, error) {
+        url := fmt.Sprintf("%s/%s/%s/_mapping", s.Host, indexNames, typeNames)
         resp, body, errs := Get(url, s.Auth,s.HttpProxy)
 
         if resp!=nil&& resp.Body!=nil{
@@ -188,7 +170,7 @@ func (s *ESAPIV0) GetIndexMappings(copyAllIndexes bool, indexNames string) (stri
 
         // if _all indexes limit the list of indexes to only these that we kept
         // after looking at mappings
-        if indexNames == "_all" {   // 匹配所有
+        if indexNames == "_all" {
 
                 var newIndexes []string
                 for name := range idxs {
@@ -196,9 +178,9 @@ func (s *ESAPIV0) GetIndexMappings(copyAllIndexes bool, indexNames string) (stri
                 }
                 indexNames = strings.Join(newIndexes, ",")
 
-        } else if strings.Contains(indexNames, "*") || strings.Contains(indexNames, "?") { // 正则匹配的方式
+        } else if strings.Contains(indexNames, "*") || strings.Contains(indexNames, "?") {
 
-                r, _ := regexp.Compile(indexNames) // 解析看看正则表达式是否合法
+                r, _ := regexp.Compile(indexNames)
 
                 //check index patterns
                 var newIndexes []string
@@ -216,7 +198,7 @@ func (s *ESAPIV0) GetIndexMappings(copyAllIndexes bool, indexNames string) (stri
         // wrap in mappings if moving from super old es
         for name, idx := range idxs {
                 i++
-                if _, ok := idx.(map[string]interface{})["mappings"]; !ok {  // ???
+                if _, ok := idx.(map[string]interface{})["mappings"]; !ok {
                         (idxs)[name] = map[string]interface{}{
                                 "mappings": idx,
                         }
@@ -226,10 +208,6 @@ func (s *ESAPIV0) GetIndexMappings(copyAllIndexes bool, indexNames string) (stri
         return indexNames, i, &idxs, nil
 }
 
-/**
-* 获取一个空的索引配置
-* 返回:map类型
-*/
 func getEmptyIndexSettings() map[string]interface{} {
         tempIndexSettings := map[string]interface{}{}
         tempIndexSettings["settings"] = map[string]interface{}{}
@@ -237,10 +215,6 @@ func getEmptyIndexSettings() map[string]interface{} {
         return tempIndexSettings
 }
 
-/**
-* 清除所有的setting
-* 无返回值
-*/
 func cleanSettings(settings map[string]interface{}) {
         //clean up settings
         delete(settings["settings"].(map[string]interface{})["index"].(map[string]interface{}), "creation_date")
@@ -249,9 +223,6 @@ func cleanSettings(settings map[string]interface{}) {
         delete(settings["settings"].(map[string]interface{})["index"].(map[string]interface{}), "provided_name")
 }
 
-/**
-* 更新索引的setting信息
-*/
 func (s *ESAPIV0) UpdateIndexSettings(name string, settings map[string]interface{}) error {
 
         log.Debug("update index: ", name, settings)
@@ -288,9 +259,6 @@ func (s *ESAPIV0) UpdateIndexSettings(name string, settings map[string]interface
         return err
 }
 
-/**
-* 更新索引的mapping信息
-*/
 func (s *ESAPIV0) UpdateIndexMapping(indexName string, settings map[string]interface{}) error {
 
         log.Debug("start update mapping: ", indexName,settings)
@@ -315,9 +283,6 @@ func (s *ESAPIV0) UpdateIndexMapping(indexName string, settings map[string]inter
         return nil
 }
 
-/**
-* 删除索引
-*/
 func (s *ESAPIV0) DeleteIndex(name string) (err error) {
 
         log.Debug("start delete index: ", name)
@@ -331,9 +296,6 @@ func (s *ESAPIV0) DeleteIndex(name string) (err error) {
         return nil
 }
 
-/**
-* 创建索引
-*/
 func (s *ESAPIV0) CreateIndex(name string, settings map[string]interface{}) (err error) {
         cleanSettings(settings)
 
@@ -350,9 +312,6 @@ func (s *ESAPIV0) CreateIndex(name string, settings map[string]interface{}) (err
         return err
 }
 
-/**
-* 刷新索引
-*/
 func (s *ESAPIV0) Refresh(name string) (err error) {
 
 
@@ -369,20 +328,10 @@ func (s *ESAPIV0) Refresh(name string) (err error) {
         return nil
 }
 
-/**
-* scroll 首次请求
-* 参数: indexNames 索引名(支持多个)
-* 参数: scrollTime 超时时间
-* 参数: docBufferCount 请求页面大小
-* 参数: query  body查询体
-* 参数: slicedId 没有用到
-* 参数: maxSlicedCount 没有用到
-* 参数: fields
-*/
-func (s *ESAPIV0) NewScroll(indexNames string, scrollTime string, docBufferCount int,query string, slicedId,maxSlicedCount int, fields string) (scroll interface{}, err error) {
+func (s *ESAPIV0) NewScroll(indexNames string, typeNames string, scrollTime string, docBufferCount int,query string, slicedId,maxSlicedCount int, fields string) (scroll interface{}, err error) {
 
         // curl -XGET 'http://es-0.9:9200/_search?search_type=scan&scroll=10m&size=50'
-        url := fmt.Sprintf("%s/%s/_search?search_type=scan&scroll=%s&size=%d", s.Host, indexNames, scrollTime, docBufferCount)
+        url := fmt.Sprintf("%s/%s/%s/_search?search_type=scan&scroll=%s&size=%d", s.Host, indexNames, typeNames, scrollTime, docBufferCount)
 
         jsonBody:=""
         if len(query) > 0 || len(fields) > 0 {
@@ -401,12 +350,12 @@ func (s *ESAPIV0) NewScroll(indexNames string, scrollTime string, docBufferCount
                         queryBody["query"].(map[string]interface{})["query_string"] = map[string]interface{}{}
                         queryBody["query"].(map[string]interface{})["query_string"].(map[string]interface{})["query"] = query
 
-                        jsonArray, err := json.Marshal(queryBody) // 将数据编码成json字符串
+                        jsonArray, err := json.Marshal(queryBody)
                         if err != nil {
                                 log.Error(err)
 
                         } else {
-                                jsonBody = string(jsonArray) // 强转
+                                jsonBody = string(jsonArray)
                         }
                 }
 
@@ -434,8 +383,8 @@ func (s *ESAPIV0) NewScroll(indexNames string, scrollTime string, docBufferCount
                 return nil, errors.New(body)
         }
 
-        scroll = &Scroll{} // 实例Scroll结构体指针类型
-        err = json.Unmarshal([]byte(body), scroll) // 解析
+        scroll = &Scroll{}
+        err = json.Unmarshal([]byte(body), scroll)
         if err != nil {
                 log.Error(err)
                 return nil, err
@@ -444,18 +393,13 @@ func (s *ESAPIV0) NewScroll(indexNames string, scrollTime string, docBufferCount
         return scroll, err
 }
 
-/*
-* 根据　scrollId　获取数据
-* 参数: scrollTime 超时时间
-* 参数: scrollId scrollId
-*/
 func (s *ESAPIV0) NextScroll(scrollTime string, scrollId string) (interface{}, error) {
         //  curl -XGET 'http://es-0.9:9200/_search/scroll?scroll=5m'
         id := bytes.NewBufferString(scrollId)
         url := fmt.Sprintf("%s/_search/scroll?scroll=%s&scroll_id=%s", s.Host, scrollTime, id)
-        resp, body, errs := Get(url, s.Auth, s.HttpProxy)
+        resp, body, errs := Get(url, s.Auth,s.HttpProxy)
 
-        if resp!=nil && resp.Body!=nil {
+        if resp!=nil&& resp.Body!=nil{
                 io.Copy(ioutil.Discard, resp.Body)
                 defer resp.Body.Close()
         }

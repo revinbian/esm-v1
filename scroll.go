@@ -17,91 +17,76 @@ limitations under the License.
 package main
 
 import (
-	"gopkg.in/cheggaaa/pb.v1" //简单的控制台进度条
-	"encoding/json" // json相关的处理
-	log "github.com/cihub/seelog" // 本地日志库
+	"gopkg.in/cheggaaa/pb.v1"
+	"encoding/json"
+	log "github.com/cihub/seelog"
 )
 
 
 type ScrollAPI interface{
-	GetScrollId()string　// 获取ScrollId
-	GetHitsTotal()int　// 获取查找到的数量
-	GetDocs() []interface{}　// 获取查找到的文档
-	ProcessScrollResult(c *Migrator, bar *pb.ProgressBar)　// 处理获取到的数据
-	Next(c *Migrator, bar *pb.ProgressBar) (done bool)　　// 根据ScrollId获取获取下一次的数据
+	GetScrollId()string
+	GetHitsTotal()int
+	GetDocs() []interface{}
+	ProcessScrollResult(c *Migrator, bar *pb.ProgressBar)
+	Next(c *Migrator, bar *pb.ProgressBar) (done bool)
 }
 
-// 下面都是Scroll结构体类实现，实现了ScrollAPI接口的所有方法
 
-/**
-* 获取查询到的数据数量
-*/
 func (scroll *Scroll) GetHitsTotal()int{
 	//fmt.Println("total v0:",scroll.Hits.Total)
 	return scroll.Hits.Total
 }
 
-/**
-* 获取结构体中ScrollId的值
-*/
 func (scroll *Scroll) GetScrollId()string{
 	return scroll.ScrollId
 }
 
-/**
-* 获取结构体中查询到的文档
-*/
 func (scroll *Scroll) GetDocs()[]interface{}{
+
 	//fmt.Println("docs v0:",scroll.Hits)
+
 	return scroll.Hits.Docs
 }
 
-/**
-* 获取查询到的数据数量－V7版本
-*/
 func (scroll *ScrollV7) GetHitsTotal()int{
 	//fmt.Println("total v7:",scroll.Hits.Total.Value)
+
 	return scroll.Hits.Total.Value
 }
 
-/**
-* 获取结构体中ScrollId的值－V7版本
-*/
+
 func (scroll *ScrollV7) GetScrollId()string{
 	return scroll.ScrollId
 }
 
-/**
-* 获取结构体中查询到的文档－V7版本
-*/
 func (scroll *ScrollV7) GetDocs()[]interface{}{
+
 	//fmt.Println("docs v7:",scroll.Hits)
+
 	return scroll.Hits.Docs
 }
 
 
 // Stream from source es instance. "done" is an indicator that the stream is
 // over
-// 来自源es实例的流。““完成”表示流结束
-func (s *Scroll) ProcessScrollResult(c *Migrator, bar *pb.ProgressBar)　{
+func (s *Scroll) ProcessScrollResult(c *Migrator, bar *pb.ProgressBar){
 
-	//update progress bar　更新处理进度条
+	//update progress bar
 	bar.Add(len(s.Hits.Docs))
 
-	// show any failures　获取获取的一些信息
+	// show any failures
 	for _, failure := range s.Shards.Failures {
 		reason, _ := json.Marshal(failure.Reason)
 		log.Errorf(string(reason))
 	}
 
-	// write all the docs into a channel　将所有的文档写入到通道中
+	// write all the docs into a channel
 	for _, docI := range s.Hits.Docs {
 		//fmt.Println(docI)
-		c.DocChan <- docI.(map[string]interface{})　//断言是不是map类型的,往通道里写数据
+		c.DocChan <- docI.(map[string]interface{})
 	}
 }
 
-// 根据ScrollId获取下一次的数据，并使用ProcessScrollResult方法数据，并且更新结构体里的ScrollId，用于下次
 func (s *Scroll) Next(c *Migrator, bar *pb.ProgressBar) (done bool) {
 
 	scroll,err:=c.SourceESAPI.NextScroll(c.Config.ScrollTime,s.ScrollId)
@@ -128,8 +113,7 @@ func (s *Scroll) Next(c *Migrator, bar *pb.ProgressBar) (done bool) {
 
 // Stream from source es instance. "done" is an indicator that the stream is
 // over
-// 来自源es实例的流。““完成”表示流结束
-func (s *ScrollV7) ProcessScrollResult(c *Migrator, bar *pb.ProgressBar)　{
+func (s *ScrollV7) ProcessScrollResult(c *Migrator, bar *pb.ProgressBar){
 
 	//update progress bar
 	bar.Add(len(s.Hits.Docs))
@@ -147,7 +131,6 @@ func (s *ScrollV7) ProcessScrollResult(c *Migrator, bar *pb.ProgressBar)　{
 	}
 }
 
-// 根据ScrollId获取下一次的数据，并使用ProcessScrollResult方法数据，并且更新结构体里的ScrollId，用于下次
 func (s *ScrollV7) Next(c *Migrator, bar *pb.ProgressBar) (done bool) {
 
 	scroll,err:=c.SourceESAPI.NextScroll(c.Config.ScrollTime,s.ScrollId)

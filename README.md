@@ -22,6 +22,8 @@ Support cross version and http basic auth.
 
 *  Support sliced scroll (only for elasticsearch 5.0)
 
+*  Support index type level
+
 
 ## Example:
 
@@ -120,13 +122,14 @@ if download version is not fill you environment,you may try to compile it yourse
   -v  --log 	    setting log level,options:trace,debug,info,warn,error
   -i  --input_file  indexing from local dump file, file format: {"_id":"xxx","_index":"xxx","_source":{"xxx":"xxx"},"_type":"xxx"  }
   -o  --output_file output documents of source index into local file, file format same as input_file.
+  --src_index_types  index type names to copy " default:""
   --source_proxy     set proxy to source http connections, ie: http://127.0.0.1:8080
   --dest_proxy       set proxy to destination http connections, ie: http://127.0.0.1:8080
   --refresh          refresh after migration finished
 
 ```
 
-Versions
+Versions(v0.4.3)
 --------
 
 From       | To

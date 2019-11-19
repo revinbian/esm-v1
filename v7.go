@@ -31,8 +31,8 @@ type ESAPIV7 struct {
 	ESAPIV5
 }
 
-func (s *ESAPIV7) NewScroll(indexNames string, scrollTime string, docBufferCount int, query string, slicedId, maxSlicedCount int, fields string) (scroll interface{}, err error) {
-	url := fmt.Sprintf("%s/%s/_search?scroll=%s&size=%d", s.Host, indexNames, scrollTime, docBufferCount)
+func (s *ESAPIV7) NewScroll(indexNames string, typeNames string, scrollTime string, docBufferCount int, query string, slicedId, maxSlicedCount int, fields string) (scroll interface{}, err error) {
+	url := fmt.Sprintf("%s/%s/%s/_search?scroll=%s&size=%d", s.Host, indexNames, typeNames, scrollTime, docBufferCount)
 
 	jsonBody := ""
 	if len(query) > 0 || maxSlicedCount > 0 || len(fields) > 0 {
