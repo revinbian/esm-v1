@@ -16,10 +16,13 @@ limitations under the License.
 
 package main
 
-import "sync"
+import "sync" // Sync包同步提供基本的同步原语，如互斥锁
 
-type Indexes map[string]interface{}
+type Indexes map[string]interface{} // key 是string 类型, interface{}表示值是任意类型
 
+/**
+* es document 结构体
+*/
 type Document struct {
 	Index   string                 `json:"_index,omitempty"`
 	Type    string                 `json:"_type,omitempty"`
@@ -28,7 +31,9 @@ type Document struct {
 	Routing string                 `json:"_routing,omitempty"`
 }
 
-
+/**
+* es scroll 结构体
+*/
 type Scroll struct {
 	Took     int    `json:"took,omitempty"`
 	ScrollId string `json:"_scroll_id,omitempty"`
@@ -52,6 +57,9 @@ type Scroll struct {
 	} `json:"_shards,omitempty"`
 }
 
+/**
+* es7 scroll 结构体
+*/
 type ScrollV7 struct {
 	Scroll
 	Hits     struct {
@@ -64,6 +72,9 @@ type ScrollV7 struct {
 	} `json:"hits"`
 }
 
+/**
+* es集群版本结构体
+*/
 type ClusterVersion struct {
 	Name        string `json:"name,omitempty"`
 	ClusterName string `json:"cluster_name,omitempty"`
@@ -73,11 +84,17 @@ type ClusterVersion struct {
 	} `json:"version,omitempty"`
 }
 
+/**
+* es集群健康结构体
+*/
 type ClusterHealth struct {
 	Name   string `json:"cluster_name,omitempty"`
 	Status string `json:"status,omitempty"`
 }
 
+/*
+*  Bulk请求es的返回结构体
+*/
 //{"took":23,"errors":true,"items":[{"create":{"_index":"mybank3","_type":"my_doc2","_id":"AWz8rlgUkzP-cujdA_Fv","status":409,"error":{"type":"version_conflict_engine_exception","reason":"[AWz8rlgUkzP-cujdA_Fv]: version conflict, document already exists (current version [1])","index_uuid":"w9JZbJkfSEWBI-uluWorgw","shard":"0","index":"mybank3"}}},{"create":{"_index":"mybank3","_type":"my_doc4","_id":"AWz8rpF2kzP-cujdA_Fx","status":400,"error":{"type":"illegal_argument_exception","reason":"Rejecting mapping update to [mybank3] as the final mapping would have more than 1 type: [my_doc2, my_doc4]"}}},{"create":{"_index":"mybank3","_type":"my_doc1","_id":"AWz8rjpJkzP-cujdA_Fu","status":400,"error":{"type":"illegal_argument_exception","reason":"Rejecting mapping update to [mybank3] as the final mapping would have more than 1 type: [my_doc2, my_doc1]"}}},{"create":{"_index":"mybank3","_type":"my_doc3","_id":"AWz8rnbckzP-cujdA_Fw","status":400,"error":{"type":"illegal_argument_exception","reason":"Rejecting mapping update to [mybank3] as the final mapping would have more than 1 type: [my_doc2, my_doc3]"}}},{"create":{"_index":"mybank3","_type":"my_doc5","_id":"AWz8rrsEkzP-cujdA_Fy","status":400,"error":{"type":"illegal_argument_exception","reason":"Rejecting mapping update to [mybank3] as the final mapping would have more than 1 type: [my_doc2, my_doc5]"}}},{"create":{"_index":"mybank3","_type":"doc","_id":"3","status":400,"error":{"type":"illegal_argument_exception","reason":"Rejecting mapping update to [mybank3] as the final mapping would have more than 1 type: [my_doc2, doc]"}}}]}
 type BulkResponse struct {
 	Took   int              `json:"took,omitempty"`
@@ -85,6 +102,9 @@ type BulkResponse struct {
 	Items  []map[string]Action `json:"items,omitempty"`
 }
 
+/**
+* 操作结构体
+*/
 type Action struct {
 	Index  string      `json:"_index,omitempty"`
 	Type   string      `json:"_type,omitempty"`
@@ -93,16 +113,21 @@ type Action struct {
 	Error  interface{} `json:"error,omitempty"`
 }
 
+/**
+* Migrator 结构体
+*/
 type Migrator struct {
 	FlushLock   sync.Mutex
-	DocChan     chan map[string]interface{}
-	SourceESAPI ESAPI
-	TargetESAPI ESAPI
-	SourceAuth  *Auth
-	TargetAuth  *Auth
-	Config      *Config
+	DocChan     chan map[string]interface{}　// map类型的通道
+	SourceESAPI ESAPI   // ESAPI 接口类型 => esapi.go
+	TargetESAPI ESAPI   // ESAPI 接口类型 => esapi.go
+	SourceAuth  *Auth   // 注意值是Auth结构体的指针类型
+	TargetAuth  *Auth   // 注意值是Auth结构体的指针类型
+	Config      *Config // 注意值是Config结构体的指针类型
 }
-
+/**
+* Config 结构体
+*/
 type Config struct {
 
 	// config options
@@ -135,6 +160,9 @@ type Config struct {
 	RenameFields      string `long:"rename"                 description:"rename source fields, comma separated, ie: _type:type, name:myname" `
 }
 
+/**
+* Auth 验证结构体
+*/
 type Auth struct {
 	User string
 	Pass string

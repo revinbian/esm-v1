@@ -17,11 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"sync"
-	log "github.com/cihub/seelog"
+	"sync"//Sync包同步提供基本的同步原语，如互斥锁
+	log "github.com/cihub/seelog"  // 日志库
 	"encoding/json"
 	"bytes"
-	"gopkg.in/cheggaaa/pb.v1"
+	"gopkg.in/cheggaaa/pb.v1"  // 简单的控制台进度条
 	"time"
 	"strings"
 )
@@ -33,15 +33,16 @@ func (c *Migrator) NewBulkWorker(docCount *int, pb *pb.ProgressBar, wg *sync.Wai
 	bulkItemSize := 0
 	mainBuf := bytes.Buffer{}
 	docBuf := bytes.Buffer{}
-	docEnc := json.NewEncoder(&docBuf)
+	docEnc := json.NewEncoder(&docBuf) // NewEncoder返回一个写入w的新编码器
 
 	READ_DOCS:
 	for {
 		select {
-		case docI, open := <-c.DocChan:
+		case docI, open := <-c.DocChan: // 从通道中获取数据
 			var err error
 			log.Trace("read doc from channel,", docI)
 		// this check is in case the document is an error with scroll stuff
+		// 这个检查是为了防止文档在滚动时出错
 			if status, ok := docI["status"]; ok {
 				if status.(int) == 404 {
 					log.Error("error: ", docI["response"])
@@ -50,37 +51,39 @@ func (c *Migrator) NewBulkWorker(docCount *int, pb *pb.ProgressBar, wg *sync.Wai
 			}
 
 		// sanity check
+		// 健康检查,字段是不是都正常存在
 			for _, key := range []string{"_index", "_type", "_source", "_id"} {
 				if _, ok := docI[key]; !ok {
 					//json,_:=json.Marshal(docI)
 					//log.Errorf("failed parsing document: %v", string(json))
-					break READ_DOCS
+					break READ_DOCS //有问题则进行下一行
 				}
 			}
 
 			var tempDestIndexName string
 			var tempTargetTypeName string
-			tempDestIndexName = docI["_index"].(string)
-			tempTargetTypeName = docI["_type"].(string)
+			tempDestIndexName = docI["_index"].(string)　// 目标es索引, 使用文档中的
+			tempTargetTypeName = docI["_type"].(string)　// 目标es　type, 使用文档中的
 
 			if c.Config.TargetIndexName != "" {
-				tempDestIndexName = c.Config.TargetIndexName
+				tempDestIndexName = c.Config.TargetIndexName //　使用配置中的
 			}
 
 			if c.Config.OverrideTypeName != "" {
-				tempTargetTypeName = c.Config.OverrideTypeName
+				tempTargetTypeName = c.Config.OverrideTypeName　//　使用配置中的
 			}
 
 
+			// 组成一个新的文档
 			doc := Document{
 				Index:  tempDestIndexName,
 				Type:   tempTargetTypeName,
-				source: docI["_source"].(map[string]interface{}),
-				Id:     docI["_id"].(string),
+				source: docI["_source"].(map[string]interface{}),　// 断言
+				Id:     docI["_id"].(string),　// 断言类型
 			}
 
 
-			if c.Config.RenameFields != "" {
+			if c.Config.RenameFields != "" {　// 重新修改字段名字
 				kvs:=strings.Split(c.Config.RenameFields,",")
 				//fmt.Println(kvs)
 				for _,i:=range kvs{
@@ -101,6 +104,7 @@ func (c *Migrator) NewBulkWorker(docCount *int, pb *pb.ProgressBar, wg *sync.Wai
 			//fmt.Println(doc.Index,",",doc.Type,",",doc.Id)
 
 			// add doc "_routing"
+			// 添加　doc "_routing"　值
 			if _, ok := docI["_routing"]; ok {
 				str,ok:=docI["_routing"].(string)
 				if ok && str!=""{
@@ -131,6 +135,7 @@ func (c *Migrator) NewBulkWorker(docCount *int, pb *pb.ProgressBar, wg *sync.Wai
 			}
 
 		// if we approach the 100mb es limit, flush to es and reset mainBuf
+		// 如果接近100mb es限制，刷新至es并重置mainBuf
 			if mainBuf.Len() + docBuf.Len() > (c.Config.BulkSizeInMB * 1000000) {
 				goto CLEAN_BUFFER
 			}

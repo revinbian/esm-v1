@@ -17,83 +17,95 @@ limitations under the License.
 package main
 
 import (
-	"net/http"
-	"github.com/parnurzeal/gorequest"
-	log "github.com/cihub/seelog"
-	"io/ioutil"
-	"io"
+	"net/http" //实现了http客户端与服务端的实现
+	"github.com/parnurzeal/gorequest"　// 简化的HTTP客户端(灵感来自SuperAgent)
+	log "github.com/cihub/seelog" // 本地日志库
+	"io/ioutil" // 实现了一些 I/O 实用程序功能
+	"io"// 操作系统相关
 	"errors"
-	"bytes"
-	"net/url"
-	"crypto/tls"
+	"bytes" // 包定义了一些操作 byte slice 的便利操作
+	"net/url" // url相关操作
+	"crypto/tls" //tls协议相关
 )
 
+/**
+* 普通函数
+* 发送get请求
+*/
 func Get(url string,auth *Auth,proxy string) (*http.Response, string, []error) {
 	request := gorequest.New()
 
-	tr := &http.Transport{
+	tr := &http.Transport{　// 设置传输配置
 		DisableKeepAlives: true,
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	request.Transport=tr
 
 
-	if(auth!=nil){
+	if(auth!=nil){ // 设置basic验证
 		request.SetBasicAuth(auth.User,auth.Pass)
 	}
 
-	request.Header["Content-Type"]= "application/json"
+	request.Header["Content-Type"]= "application/json"　// 设置请求头格式
 	//request.Header.Set("Content-Type", "application/json")
 
-	if(len(proxy)>0){
+	if(len(proxy)>0){　// 设置代理
 		request.Proxy(proxy)
 	}
 
-	resp, body, errs := request.Get(url).End()
+	resp, body, errs := request.Get(url).End()　// 发送get请求，获取返回结果
 	return resp, body, errs
 
 }
 
+/**
+* 普通函数
+* 发送post请求
+*/
 func Post(url string,auth *Auth, body string,proxy string)(*http.Response, string, []error)  {
 	request := gorequest.New()
-	tr := &http.Transport{
+	tr := &http.Transport{　// 设置传输配置
 		DisableKeepAlives: true,
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	request.Transport=tr
 
-	if(auth!=nil){
+	if(auth!=nil){　// 设置basic验证
 		request.SetBasicAuth(auth.User,auth.Pass)
 	}
 
-	request.Header["Content-Type"]="application/json"
+	request.Header["Content-Type"]="application/json"　// 设置请求头格式
 	
-	if(len(proxy)>0){
+	if(len(proxy)>0){ // 设置代理
 		request.Proxy(proxy)
 	}
 
-	request.Post(url)
+	request.Post(url) // 发送post请求，获取返回结果
 
-	if(len(body)>0) {
+	if(len(body)>0) { //设置body体
 		request.Send(body)
 	}
 
-	return request.End()
+	return request.End()　// 返回post请求结果
 }
 
+/**
+* 普通函数
+* 发送delete请求
+*/
 func newDeleteRequest(client *http.Client,method, urlStr string) (*http.Request, error) {
-	if method == "" {
+	if method == "" {　// 设置默认的请求方式
 		// We document that "" means "GET" for Request.Method, and people have
 		// relied on that from NewRequest, so keep that working.
 		// We still enforce validMethod for non-empty methods.
 		method = "GET"
 	}
-	u, err := url.Parse(urlStr)
+	u, err := url.Parse(urlStr) // 解析验证是否合法
 	if err != nil {
 		return nil, err
 	}
 
-	req := &http.Request{
+	req := &http.Request{　// 发送请求，使用是http包
 		Method:     method,
 		URL:        u,
 		Proto:      "HTTP/1.1",
@@ -105,6 +117,10 @@ func newDeleteRequest(client *http.Client,method, urlStr string) (*http.Request,
 	return req, nil
 }
 
+/**
+* 普通函数
+* 通用请求方法
+*/
 func Request(method string,r string,auth *Auth,body *bytes.Buffer,proxy string)(string,error)  {
 
 	//TODO use global client
@@ -127,7 +143,7 @@ func Request(method string,r string,auth *Auth,body *bytes.Buffer,proxy string)(
 		DisableKeepAlives: true,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
-	},
+		},
 	}
 
 	client.Transport=tr
@@ -157,11 +173,11 @@ func Request(method string,r string,auth *Auth,body *bytes.Buffer,proxy string)(
 	}
 
 	if resp.StatusCode != 200 {
-		b, _ := ioutil.ReadAll(resp.Body)
+		b, _ := ioutil.ReadAll(resp.Body)　//  读取直到 EOF
 		return "",errors.New("server error: "+string(b))
 	}
 
-	respBody,err:=ioutil.ReadAll(resp.Body)
+	respBody,err:=ioutil.ReadAll(resp.Body)　　//  读取直到 EOF
 
 	if err != nil {
 		log.Error(err)
@@ -173,7 +189,7 @@ func Request(method string,r string,auth *Auth,body *bytes.Buffer,proxy string)(
 	if err != nil {
 		return string(respBody),err
 	}
-	io.Copy(ioutil.Discard, resp.Body)
-	defer resp.Body.Close()
-	return string(respBody),nil
+	io.Copy(ioutil.Discard, resp.Body) //将resp中的body置为空，上面已经获取到了
+	defer resp.Body.Close() //函数退出，关闭请求body,收尾工作
+	return string(respBody),nil　// 强转
 }
